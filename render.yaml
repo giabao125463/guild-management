@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: starter
     region: singapore
-    buildCommand: corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile && pnpm --filter @guild/shared-types build && pnpm --filter @guild/shared-utils build && pnpm --filter @guild/api prisma:generate && pnpm --filter @guild/api build
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.9 --activate && NODE_ENV=development pnpm install --frozen-lockfile && pnpm --filter @guild/shared-types build && pnpm --filter @guild/shared-utils build && pnpm --filter @guild/api prisma:generate && pnpm --filter @guild/api build
     startCommand: cd apps/api && pnpm exec prisma migrate deploy && node dist/main.js
     healthCheckPath: /api/health
     envVars:
