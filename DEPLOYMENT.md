@@ -93,10 +93,10 @@ postgresql://user:password@ep-xxxx.region.aws.neon.tech/guild_management?sslmode
 - **Build Command** (Render — bắt buộc cài devDependencies vì `NODE_ENV=production`):
 
 ```bash
-corepack enable && corepack prepare pnpm@9.15.9 --activate && NODE_ENV=development pnpm install --frozen-lockfile && pnpm --filter @guild/shared-types build && pnpm --filter @guild/shared-utils build && pnpm --filter @guild/api prisma:generate && pnpm --filter @guild/api build
+npm install -g pnpm@9.15.9 && NODE_ENV=development pnpm install --frozen-lockfile && pnpm --filter @guild/shared-types build && pnpm --filter @guild/shared-utils build && pnpm --filter @guild/api prisma:generate && pnpm --filter @guild/api build
 ```
 
-> Không dùng `pnpm build` mặc định nếu Render set `NODE_ENV=production` trước khi install — sẽ thiếu `typescript`.
+> Không dùng `corepack enable` trên Render — filesystem read-only (`EROFS`).
 
 - **Start Command**:
 
@@ -136,7 +136,7 @@ pnpm --filter @guild/api run prisma:seed
 4. **Install Command**:
 
 ```bash
-cd ../.. && corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile
+cd ../.. && pnpm install --frozen-lockfile
 ```
 
 5. **Build Command**:

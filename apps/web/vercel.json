@@ -1,8 +1,8 @@
 {
-  "buildCommand": "cd ../.. && corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile && pnpm --filter @guild/shared-types build && pnpm --filter @guild/shared-utils build && pnpm --filter @guild/web build",
+  "buildCommand": "cd ../.. && pnpm --filter @guild/shared-types build && pnpm --filter @guild/shared-utils build && pnpm --filter @guild/web build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "cd ../.. && corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "rewrites": [
     {
       "source": "/(.*)",
