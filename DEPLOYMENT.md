@@ -51,7 +51,7 @@ Trên máy local (một lần):
 
 ```bash
 export DATABASE_URL='postgresql://...neon...?sslmode=require&schema=public'
-cd apps/api && pnpm exec prisma migrate deploy && pnpm exec prisma db seed
+cd apps/api && pnpm run prisma:migrate && pnpm run prisma:seed
 ```
 
 ---
@@ -101,7 +101,7 @@ npm install -g pnpm@9.15.9 && NODE_ENV=development pnpm install --frozen-lockfil
 - **Start Command**:
 
 ```bash
-cd apps/api && pnpm exec prisma migrate deploy && node dist/main.js
+cd apps/api && pnpm run prisma:migrate && node dist/main.js
 ```
 
 - **Health Check Path**: `/api/health`
