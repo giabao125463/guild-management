@@ -29,6 +29,7 @@ import { AuditService } from '../audit/audit.service';
 import { ExcelService } from '../members/excel.service';
 import {
   AddParticipantsDto,
+  AddParticipantsByNamesDto,
   CreateGuildWarDayDto,
   CreateGuildWarMatchDto,
   GuildWarQueryDto,
@@ -511,6 +512,77 @@ export class GuildWarService {
     return created.map((p) => this.toParticipantDto(p));
   }
 
+  async addParticipantsByNames(
+    matchId: string,
+    dto: AddParticipantsByNamesDto,
+    actor?: { id: string; email: string },
+  ) {
+    const match = await this.prisma.guildWarMatch.findFirst({
+      where: { id: matchId, deletedAt: null },
+    });
+    if (!match) throw new NotFoundException('Match not found');
+
+    const { memberIds, notFound, ambiguous } = await this.resolveMemberIdsByNames(
+      dto.names,
+    );
+
+    if (memberIds.length === 0) {
+      throw new BadRequestException({
+        message: 'Không tìm thấy thành viên nào khớp tên',
+        notFound,
+        ambiguous,
+      });
+    }
+
+    const added = await this.addParticipants(matchId, { memberIds }, actor);
+
+    return {
+      added: added.length,
+      notFound,
+      ambiguous,
+    };
+  }
+
+  private async resolveMemberIdsByNames(names: string[]) {
+    const normalized = [
+      ...new Set(
+        names.map((name) => name.trim()).filter((name) => name.length > 0),
+      ),
+    ];
+
+    const memberIds: string[] = [];
+    const notFound: string[] = [];
+    const ambiguous: {
+      name: string;
+      members: { id: string; internalMemberId: string; currentName: string }[];
+    }[] = [];
+
+    for (const name of normalized) {
+      const members = await this.prisma.member.findMany({
+        where: {
+          deletedAt: null,
+          currentName: { equals: name, mode: 'insensitive' },
+        },
+        select: {
+          id: true,
+          internalMemberId: true,
+          currentName: true,
+        },
+        orderBy: { internalMemberId: 'asc' },
+      });
+
+      if (members.length === 0) {
+        notFound.push(name);
+      } else if (members.length > 1) {
+        ambiguous.push({ name, members });
+      } else {
+        memberIds.push(members[0]!.id);
+      }
+    }
+
+    return { memberIds, notFound, ambiguous };
+  }
+
   async removeParticipant(
     matchId: string,
     memberId: string,
@@ -544,11 +616,32 @@ export class GuildWarService {
     buffer: Buffer,
     actor?: { id: string; email: string },
   ) {
-    const { internalMemberIds, errors } =
+    const { names, internalMemberIds, errors } =
       await this.excel.parseGuildWarParticipants(buffer);
 
     const memberIds: string[] = [];
-    for (let i = 0; i < internalMemberIds.length; i++) {
+    const nameRows = names.length;
+    const idRows = internalMemberIds.length;
+
+    for (let i = 0; i < nameRows; i++) {
+      const name = names[i]!;
+      const resolved = await this.resolveMemberIdsByNames([name]);
+      if (resolved.memberIds.length === 1) {
+        memberIds.push(resolved.memberIds[0]!);
+      } else if (resolved.ambiguous.length > 0) {
+        errors.push({
+          row: i + 2,
+          message: `Nhiều thành viên trùng tên: ${name}`,
+        });
+      } else {
+        errors.push({
+          row: i + 2,
+          message: `Không tìm thấy thành viên: ${name}`,
+        });
+      }
+    }
+
+    for (let i = 0; i < idRows; i++) {
       const internalId = internalMemberIds[i]!;
       const member = await this.prisma.member.findFirst({
         where: { internalMemberId: internalId, deletedAt: null },
@@ -563,12 +656,14 @@ export class GuildWarService {
       }
     }
 
-    if (memberIds.length === 0 && errors.length > 0) {
+    const uniqueMemberIds = [...new Set(memberIds)];
+
+    if (uniqueMemberIds.length === 0 && errors.length > 0) {
       throw new BadRequestException({ message: 'Import failed', errors });
     }
 
-    const added = memberIds.length
-      ? await this.addParticipants(matchId, { memberIds }, actor)
+    const added = uniqueMemberIds.length
+      ? await this.addParticipants(matchId, { memberIds: uniqueMemberIds }, actor)
       : [];
 
     await this.audit.log({
@@ -577,10 +672,10 @@ export class GuildWarService {
       action: AuditAction.IMPORT,
       module: 'guildwar',
       resourceId: matchId,
-      details: { imported: memberIds.length, errors },
+      details: { imported: uniqueMemberIds.length, errors },
     });
 
-    return { added: added.length, errors };
+    return { inserted: added.length, updated: 0, failed: errors.length, errors };
   }
 
   async buildParticipantTemplate() {

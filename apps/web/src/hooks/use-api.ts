@@ -7,6 +7,7 @@ import type {
   GuildWarDayDto,
   GuildWarAutoSyncResult,
   GuildWarMatchDto,
+  AddParticipantsByNamesResult,
   ImportResult,
   MemberDto,
   MemberTimelineDto,
@@ -201,6 +202,26 @@ export function useAddParticipants(dayId: string) {
     }) =>
       unwrap<GuildWarMatchDto>(
         api.post(`/guild-war/matches/${matchId}/participants`, { memberIds }),
+      ),
+    onSuccess: (_, { matchId }) => {
+      qc.invalidateQueries({ queryKey: ["guild-war-match", matchId] });
+      qc.invalidateQueries({ queryKey: ["guild-war-day", dayId] });
+    },
+  });
+}
+
+export function useAddParticipantsByNames(dayId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      matchId,
+      names,
+    }: {
+      matchId: string;
+      names: string[];
+    }) =>
+      unwrap<AddParticipantsByNamesResult>(
+        api.post(`/guild-war/matches/${matchId}/participants/by-names`, { names }),
       ),
     onSuccess: (_, { matchId }) => {
       qc.invalidateQueries({ queryKey: ["guild-war-match", matchId] });

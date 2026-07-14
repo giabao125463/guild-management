@@ -177,12 +177,37 @@ export class GiveawayService {
     buffer: Buffer,
     actor?: { id: string; email: string },
   ) {
-    const { internalMemberIds, errors } =
+    const { names, internalMemberIds, errors } =
       await this.excel.parseGuildWarParticipants(buffer);
 
-    if (internalMemberIds.length === 0) {
+    const resolvedMemberIds: string[] = [];
+
+    for (const name of names) {
+      const members = await this.prisma.member.findMany({
+        where: {
+          deletedAt: null,
+          currentName: { equals: name, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      if (members.length === 1) {
+        resolvedMemberIds.push(members[0]!.id);
+      }
+    }
+
+    for (const internalId of internalMemberIds) {
+      const member = await this.prisma.member.findFirst({
+        where: { internalMemberId: internalId, deletedAt: null },
+        select: { id: true },
+      });
+      if (member) resolvedMemberIds.push(member.id);
+    }
+
+    const memberIds = [...new Set(resolvedMemberIds)];
+
+    if (memberIds.length === 0) {
       throw new BadRequestException({
-        message: 'File Excel không có mã thành viên hợp lệ',
+        message: 'File Excel không có thành viên hợp lệ',
         errors,
       });
     }
@@ -191,7 +216,7 @@ export class GiveawayService {
       guildWarDayId,
       {
         filterType: GiveawayFilterType.CUSTOM,
-        internalMemberIds: [...new Set(internalMemberIds)],
+        memberIds,
       },
       actor,
     );

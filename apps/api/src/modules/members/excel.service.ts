@@ -176,6 +176,7 @@ export class ExcelService {
   }
 
   async parseGuildWarParticipants(buffer: Buffer): Promise<{
+    names: string[];
     internalMemberIds: string[];
     errors: { row: number; message: string }[];
   }> {
@@ -190,23 +191,44 @@ export class ExcelService {
     const headerRow = sheet.getRow(1);
     const columnMap = this.buildColumnMap(headerRow);
 
+    const nameCol =
+      columnMap.get('name') ??
+      columnMap.get('currentname') ??
+      columnMap.get('ten') ??
+      columnMap.get('tên');
+
     const idCol =
       columnMap.get('internalmemberid') ??
       columnMap.get('internal_member_id') ??
       columnMap.get('memberid');
 
-    if (!idCol) {
+    if (!nameCol && !idCol) {
       throw new BadRequestException(
-        'Excel must contain an internalMemberId column',
+        'Excel must contain a name or internalMemberId column',
       );
     }
 
+    const names: string[] = [];
     const internalMemberIds: string[] = [];
     const errors: { row: number; message: string }[] = [];
 
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return;
-      const raw = this.cellValue(row.getCell(idCol));
+
+      if (nameCol) {
+        const rawName = this.cellValue(row.getCell(nameCol));
+        if (!rawName) {
+          errors.push({
+            row: rowNumber,
+            message: 'name is required',
+          });
+          return;
+        }
+        names.push(String(rawName).trim());
+        return;
+      }
+
+      const raw = this.cellValue(row.getCell(idCol!));
       if (!raw) {
         errors.push({
           row: rowNumber,
@@ -217,17 +239,15 @@ export class ExcelService {
       internalMemberIds.push(String(raw).trim());
     });
 
-    return { internalMemberIds, errors };
+    return { names, internalMemberIds, errors };
   }
 
   async buildGuildWarParticipantTemplate(): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Participants');
 
-    sheet.columns = [
-      { header: 'internalMemberId', key: 'internalMemberId', width: 20 },
-    ];
-    sheet.addRow({ internalMemberId: 'M001' });
+    sheet.columns = [{ header: 'name', key: 'name', width: 28 }];
+    sheet.addRow({ name: 'Nguyễn Văn A' });
 
     const headerRow = sheet.getRow(1);
     headerRow.font = { bold: true };

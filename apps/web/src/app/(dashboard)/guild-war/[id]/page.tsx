@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowLeft, Download, FileUp, Plus, Users } from "lucide-react";
+import { ArrowLeft, Download, FileUp, Plus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { getGameClassLabel } from "@guild/shared-utils";
 import { Permission } from "@guild/shared-types";
@@ -12,12 +12,12 @@ import { hasPermission } from "@guild/shared-utils";
 import { useAuthStore } from "@/lib/auth-store";
 import { downloadFile } from "@/lib/api";
 import {
-  useAddParticipants,
   useCreateMatch,
   useGuildWarDay,
   useImportParticipants,
 } from "@/hooks/use-api";
 import { PageHeader } from "@/components/page-header";
+import { AddParticipantsModal } from "@/components/guild-war/add-participants-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MemberSearchMultiPicker } from "@/components/members/member-search-picker";
 import {
   Table,
   TableBody,
@@ -50,11 +49,11 @@ export default function GuildWarDayPage() {
   const [matchDialogOpen, setMatchDialogOpen] = React.useState(false);
   const [matchName, setMatchName] = React.useState("");
   const [selectedMatchId, setSelectedMatchId] = React.useState<string | null>(null);
-  const [pendingParticipants, setPendingParticipants] = React.useState<
-    Record<string, { ids: string[]; members: { id: string; internalMemberId: string; currentName: string }[] }>
-  >({});
+  const [participantsModal, setParticipantsModal] = React.useState<{
+    matchId: string;
+    matchName: string;
+  } | null>(null);
 
-  const addParticipants = useAddParticipants(id);
   const importParticipants = useImportParticipants(selectedMatchId ?? "", id);
 
   if (isLoading) {
@@ -80,19 +79,6 @@ export default function GuildWarDayPage() {
     }
   };
 
-  const handleAddParticipants = async (matchId: string) => {
-    const pending = pendingParticipants[matchId];
-    const memberIds = pending?.ids ?? [];
-    if (memberIds.length === 0) return;
-    try {
-      await addParticipants.mutateAsync({ matchId, memberIds });
-      toast.success("Đã thêm người tham gia");
-      setPendingParticipants((prev) => ({ ...prev, [matchId]: { ids: [], members: [] } }));
-    } catch {
-      toast.error("Thêm người tham gia thất bại");
-    }
-  };
-
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>, matchId: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -100,6 +86,9 @@ export default function GuildWarDayPage() {
     try {
       const result = await importParticipants.mutateAsync(file);
       toast.success(`Đã nhập ${result.inserted} người tham gia`);
+      if (result.failed > 0) {
+        toast.warning(`${result.failed} dòng lỗi`);
+      }
     } catch {
       toast.error("Nhập thất bại");
     }
@@ -139,7 +128,18 @@ export default function GuildWarDayPage() {
                   )}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {hasPermission(permissions, Permission.GUILDWAR_WRITE) && (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      setParticipantsModal({ matchId: match.id, matchName: match.name })
+                    }
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Thêm nhiều người
+                  </Button>
+                )}
                 {hasPermission(permissions, Permission.GUILDWAR_IMPORT) && (
                   <>
                     <Button
@@ -158,7 +158,7 @@ export default function GuildWarDayPage() {
                     <Button variant="outline" size="sm" asChild>
                       <label className="cursor-pointer">
                         <FileUp className="h-4 w-4" />
-                        Nhập
+                        Nhập Excel
                         <input
                           type="file"
                           accept=".xlsx,.xls"
@@ -201,34 +201,6 @@ export default function GuildWarDayPage() {
                 <p className="text-sm text-muted-foreground">Chưa có người tham gia.</p>
               )}
 
-              {hasPermission(permissions, Permission.GUILDWAR_WRITE) && (
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-start">
-                  <MemberSearchMultiPicker
-                    className="max-w-md flex-1"
-                    value={pendingParticipants[match.id]?.ids ?? []}
-                    selectedMembers={pendingParticipants[match.id]?.members ?? []}
-                    excludeIds={match.participants?.map((p) => p.memberId) ?? []}
-                    onChange={(ids, members) => {
-                      setSelectedMatchId(match.id);
-                      setPendingParticipants((prev) => ({
-                        ...prev,
-                        [match.id]: { ids, members },
-                      }));
-                    }}
-                    placeholder="Tìm thành viên để thêm..."
-                  />
-                  <Button
-                    size="sm"
-                    className="shrink-0"
-                    disabled={(pendingParticipants[match.id]?.ids.length ?? 0) === 0}
-                    onClick={() => handleAddParticipants(match.id)}
-                  >
-                    <Users className="h-4 w-4" />
-                    Thêm
-                  </Button>
-                </div>
-              )}
-
               {match.mvpMember && (
                 <Badge className="mt-3" variant="success">
                   MVP: {match.mvpMember.currentName}
@@ -246,6 +218,18 @@ export default function GuildWarDayPage() {
           </Card>
         )}
       </div>
+
+      {participantsModal && (
+        <AddParticipantsModal
+          open
+          dayId={id}
+          matchId={participantsModal.matchId}
+          matchName={participantsModal.matchName}
+          onOpenChange={(open) => {
+            if (!open) setParticipantsModal(null);
+          }}
+        />
+      )}
 
       <Dialog open={matchDialogOpen} onOpenChange={setMatchDialogOpen}>
         <DialogContent>

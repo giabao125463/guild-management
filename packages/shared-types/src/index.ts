@@ -393,6 +393,15 @@ export interface ImportResult {
   errors: { row: number; message: string }[];
 }
 
+export interface AddParticipantsByNamesResult {
+  added: number;
+  notFound: string[];
+  ambiguous: {
+    name: string;
+    members: { id: string; internalMemberId: string; currentName: string }[];
+  }[];
+}
+
 export interface GlobalSearchResult {
   members: MemberDto[];
   total: number;

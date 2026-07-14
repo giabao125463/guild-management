@@ -62,6 +62,14 @@ export class AddParticipantsDto {
   memberIds!: string[];
 }
 
+export class AddParticipantsByNamesDto {
+  @ApiProperty({ type: [String], example: ['Nguyễn Văn A', 'Trần Thị B'] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  names!: string[];
+}
+
 export class GuildWarQueryDto extends PaginationDto {
   @ApiPropertyOptional()
   @IsOptional()

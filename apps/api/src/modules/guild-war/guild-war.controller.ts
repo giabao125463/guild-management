@@ -29,6 +29,7 @@ import {
 import { GuildWarService } from './guild-war.service';
 import {
   AddParticipantsDto,
+  AddParticipantsByNamesDto,
   CreateGuildWarDayDto,
   CreateGuildWarMatchDto,
   GuildWarQueryDto,
@@ -142,6 +143,17 @@ export class GuildWarController {
     @CurrentUser() actor: { id: string; email: string },
   ) {
     return this.guildWarService.addParticipants(id, dto, actor);
+  }
+
+  @Post('matches/:id/participants/by-names')
+  @RequirePermissions(Permission.GUILDWAR_WRITE)
+  @ApiOperation({ summary: 'Add participants by member names' })
+  addParticipantsByNames(
+    @Param('id') id: string,
+    @Body() dto: AddParticipantsByNamesDto,
+    @CurrentUser() actor: { id: string; email: string },
+  ) {
+    return this.guildWarService.addParticipantsByNames(id, dto, actor);
   }
 
   @Delete('matches/:matchId/participants/:memberId')

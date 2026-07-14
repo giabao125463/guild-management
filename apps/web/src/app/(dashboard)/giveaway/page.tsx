@@ -276,8 +276,8 @@ export default function GiveawayPage() {
                   Import Excel danh sách thành viên tham gia vòng quay
                 </p>
                 <p className="mb-3 text-xs text-muted-foreground">
-                  File cần cột <code className="rounded bg-muted px-1">internalMemberId</code>{" "}
-                  (mã thành viên nội bộ).
+                  File cần cột <code className="rounded bg-muted px-1">name</code>{" "}
+                  (tên thành viên).
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
