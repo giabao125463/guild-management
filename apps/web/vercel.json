@@ -2,7 +2,7 @@
   "buildCommand": "cd ../.. && pnpm --filter @guild/shared-types build && pnpm --filter @guild/shared-utils build && pnpm --filter @guild/web build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "installCommand": "cd ../.. && NODE_ENV=development pnpm install --frozen-lockfile",
   "rewrites": [
     {
       "source": "/(.*)",

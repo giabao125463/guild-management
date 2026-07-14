@@ -136,7 +136,7 @@ pnpm --filter @guild/api run prisma:seed
 4. **Install Command**:
 
 ```bash
-cd ../.. && pnpm install --frozen-lockfile
+cd ../.. && NODE_ENV=development pnpm install --frozen-lockfile
 ```
 
 5. **Build Command**:
