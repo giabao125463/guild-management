@@ -1,0 +1,14 @@
+node_modules
+.git
+.next
+dist
+coverage
+*.log
+.env
+.env.*
+!.env.example
+apps/web/.next
+apps/api/dist
+**/*.md
+.turbo
+.DS_Store

@@ -1,0 +1,24 @@
+{
+  "name": "guild-management",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Guild Management System for Justice Online (Nghịch Thủy Hàn)",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:api": "pnpm --filter @guild/api dev",
+    "dev:web": "pnpm --filter @guild/web dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test",
+    "test:e2e": "pnpm --filter @guild/api test:e2e && pnpm --filter @guild/web test:e2e",
+    "db:migrate": "pnpm --filter @guild/api prisma:migrate",
+    "db:seed": "pnpm --filter @guild/api prisma:seed",
+    "db:generate": "pnpm --filter @guild/api prisma:generate",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.9"
+}

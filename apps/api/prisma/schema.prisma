@@ -1,0 +1,370 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GameClass {
+  TO_VAN
+  THIET_Y
+  HUYET_HA
+  THAN_TUONG
+  CUU_LINH
+  TOAI_MONG
+  LONG_NGAM
+}
+
+enum MemberTimelineEventType {
+  JOINED
+  LEFT
+  REJOINED
+  NAME_CHANGED
+  CLASS_CHANGED
+  BLACKLISTED
+  UNBLACKLISTED
+  CONTRIBUTION_UPDATED
+  NOTE_UPDATED
+}
+
+enum DungeonStatus {
+  OPEN
+  FULL
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum GiveawayFilterType {
+  ALL_MATCHES_TODAY
+  MVP_TODAY
+  CUSTOM
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  EXPORT
+  RESET_PASSWORD
+  SPIN_GIVEAWAY
+  REGISTER
+  CANCEL_REGISTRATION
+}
+
+enum UserGroupType {
+  KIM_LANG
+  TEAM
+  TINH_DUYEN
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  permissions  String[]  @default([])
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+  giveaways     Giveaway[]     @relation("GiveawaySpinner")
+
+  @@index([email])
+  @@index([deletedAt])
+  @@index([isActive])
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  userId     String
+  expiresAt  DateTime
+  rememberMe Boolean   @default(false)
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model UserGroup {
+  id          String        @id @default(cuid())
+  name        String
+  type        UserGroupType
+  description String?
+  sortOrder   Int           @default(0)
+  isActive    Boolean       @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  memberAssignments MemberUserGroupAssignment[]
+
+  @@index([name])
+  @@index([type])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@index([sortOrder])
+  @@map("user_group")
+}
+
+model MemberUserGroupAssignment {
+  memberId    String
+  userGroupId String
+  type        UserGroupType
+
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  userGroup UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
+
+  @@id([memberId, type])
+  @@index([userGroupId])
+  @@map("member_user_group")
+}
+
+model Member {
+  id                      String     @id @default(cuid())
+  internalMemberId        String     @unique
+  currentName             String
+  currentClass            GameClass
+  joinDate                DateTime?
+  leaveDate               DateTime?
+  isActive                Boolean    @default(true)
+  isBlacklisted           Boolean    @default(false)
+  relationship            String?
+  realLifeRelationship    String?
+  tags                    String[]   @default([])
+  note                    String?
+  contributionPoint       Int        @default(0)
+  guildWarAttendanceCount Int        @default(0)
+  deletedAt               DateTime?
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+
+  userGroupAssignments MemberUserGroupAssignment[]
+  historicalNames      MemberNameHistory[]
+  historicalClasses    MemberClassHistory[]
+  timelines            MemberTimeline[]
+  warParticipants      GuildWarParticipant[]
+  mvpMatches           GuildWarMatch[]       @relation("MatchMvp")
+  giveawayWins         Giveaway[]            @relation("GiveawayLatestWinner")
+  giveawayWinRecords   GiveawayWinner[]      @relation("GiveawayWinRecords")
+  ledDungeons          DungeonSchedule[]     @relation("DungeonLeader")
+  dungeonRegs          DungeonRegistration[]
+
+  @@index([currentName])
+  @@index([currentClass])
+  @@index([isActive])
+  @@index([isBlacklisted])
+  @@index([contributionPoint])
+  @@index([guildWarAttendanceCount])
+  @@index([deletedAt])
+  @@index([tags])
+}
+
+model MemberNameHistory {
+  id        String   @id @default(cuid())
+  memberId  String
+  name      String
+  changedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([name])
+}
+
+model MemberClassHistory {
+  id         String    @id @default(cuid())
+  memberId   String
+  gameClass  GameClass
+  changedAt  DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([gameClass])
+}
+
+model MemberTimeline {
+  id          String                  @id @default(cuid())
+  memberId    String
+  eventType   MemberTimelineEventType
+  description String
+  oldValue    String?
+  newValue    String?
+  createdBy   String?
+  createdAt   DateTime                @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model GuildWarDay {
+  id          String    @id @default(cuid())
+  date        DateTime  @unique @db.Date
+  note        String?
+  autoCreated Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  matches   GuildWarMatch[]
+  giveaways Giveaway[]
+
+  @@index([date])
+  @@index([deletedAt])
+}
+
+model GuildWarMatch {
+  id            String    @id @default(cuid())
+  guildWarDayId String
+  name          String
+  order         Int       @default(1)
+  mvpMemberId   String?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  guildWarDay  GuildWarDay           @relation(fields: [guildWarDayId], references: [id], onDelete: Cascade)
+  mvpMember    Member?               @relation("MatchMvp", fields: [mvpMemberId], references: [id], onDelete: SetNull)
+  participants GuildWarParticipant[]
+
+  @@index([guildWarDayId])
+  @@index([mvpMemberId])
+  @@index([deletedAt])
+  @@unique([guildWarDayId, order])
+}
+
+model GuildWarParticipant {
+  id        String   @id @default(cuid())
+  matchId   String
+  memberId  String
+  createdAt DateTime @default(now())
+
+  match  GuildWarMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  member Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, memberId])
+  @@index([matchId])
+  @@index([memberId])
+}
+
+model Giveaway {
+  id             String             @id @default(cuid())
+  guildWarDayId  String
+  filterType     GiveawayFilterType
+  customFilter   Json?
+  candidateIds   String[]           @default([])
+  candidateCount Int                @default(0)
+  winnerMemberId String?
+  spunAt         DateTime?
+  spunBy         String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  guildWarDay  GuildWarDay       @relation(fields: [guildWarDayId], references: [id], onDelete: Cascade)
+  winnerMember Member?           @relation("GiveawayLatestWinner", fields: [winnerMemberId], references: [id], onDelete: SetNull)
+  spinner      User?             @relation("GiveawaySpinner", fields: [spunBy], references: [id], onDelete: SetNull)
+  winners      GiveawayWinner[]
+
+  @@index([guildWarDayId])
+  @@index([winnerMemberId])
+  @@index([spunAt])
+}
+
+model GiveawayWinner {
+  id         String   @id @default(cuid())
+  giveawayId String
+  memberId   String
+  order      Int
+  spunAt     DateTime @default(now())
+  spunBy     String?
+  createdAt  DateTime @default(now())
+
+  giveaway Giveaway @relation(fields: [giveawayId], references: [id], onDelete: Cascade)
+  member   Member   @relation("GiveawayWinRecords", fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([giveawayId, memberId])
+  @@index([giveawayId])
+  @@index([memberId])
+  @@index([spunAt])
+}
+
+model DungeonSchedule {
+  id              String        @id @default(cuid())
+  title           String
+  description     String?
+  scheduledAt     DateTime
+  maxPlayers      Int
+  leaderId        String?
+  requiredClasses GameClass[]   @default([])
+  status          DungeonStatus @default(OPEN)
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  leader         Member?               @relation("DungeonLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  registrations  DungeonRegistration[]
+
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([leaderId])
+  @@index([deletedAt])
+}
+
+model DungeonRegistration {
+  id          String    @id @default(cuid())
+  dungeonId   String
+  memberId    String
+  registeredAt DateTime @default(now())
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  dungeon DungeonSchedule @relation(fields: [dungeonId], references: [id], onDelete: Cascade)
+  member  Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([dungeonId, memberId])
+  @@index([dungeonId])
+  @@index([memberId])
+  @@index([cancelledAt])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  userEmail  String?
+  action     AuditAction
+  module     String
+  resourceId String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([module])
+  @@index([createdAt])
+  @@index([resourceId])
+}
